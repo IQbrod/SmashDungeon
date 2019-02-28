@@ -1,4 +1,4 @@
-import socket, select, sys
+import socket, sys
 from _thread import start_new_thread
 
 # Create a TCP/IP socket
@@ -16,8 +16,7 @@ def listen_server_thread(sock):
             print('Disconnected')
             break
         else :
-            sys.stdout.write(data.decode())
-            #display()
+            print(data.decode())
 
 #Thread to listen server
 start_new_thread(listen_server_thread,(sock,))
@@ -25,4 +24,7 @@ start_new_thread(listen_server_thread,(sock,))
 #Send input messages from stdin
 while True:
     msg = sys.stdin.readline()[:-1]
-    sock.send(msg.encode())
+    if msg == "/exit":
+        sys.exit()
+    else:
+        sock.send(msg.encode())

@@ -1,6 +1,8 @@
 import socket
 import sys
-from _thread import start_new_thread
+sys.path.insert(0,"server_data")
+from parameters import *
+from _thread import start_new_thread, allocate_lock
 
 ## SERVER DEFINITION ##
 HOST = 'localhost' # all availabe interfaces
@@ -23,10 +25,12 @@ except(socket.error, msg):
     sys.exit()
 
 s.listen(10)
-s.settimeout(60)
+#s.settimeout(60)
 print("Listening...")
 
-
+## SERVER LOCKERS ##
+logs_lock = allocate_lock()
+users_lock = allocate_lock()
 
 ## SERVER BEHAVIOR ##
 clients = []
@@ -35,27 +39,66 @@ class User():
     def __init__(self,conn,addr):
         self.conn = conn
         self.addr = addr
-        self.name = ""
+        self.id = -1
 
 def broadcast(msg):
     for client in clients:
         client.conn.sendall(msg.encode())
 
+def server_log(msg):
+    with logs_lock:
+        with open(LOGS_FILE, "a") as f:
+            f.write(msg)
+
+def new_user(usr,args):
+    args = args.rstrip("\n").split(",")    
+
+    with users_lock:
+        with open(USER_DB, "r+") as f:
+            idx = 0
+            for line in f:
+                l = line.split(",")
+                # Same Username
+                if (l[1] == args[0]):
+                    usr.conn.sendall("NWU".encode())
+                    return
+                # Same Email
+                elif (l[2] == args[1]):
+                    usr.conn.sendall("NWM".encode())
+                    return
+                idx += 1
+            # User Creation
+            f.write(str(idx)+","+args[0]+","+args[1]+","+args[2]+"\n")
+        usr.id = idx
+    usr.conn.sendall("NEW".encode())
+
+
+
 def client_thread(usr):
     while True:
+        # Receive a message
         data = usr.conn.recv(1024)
-        name = usr.name if usr.name != "" else str(usr.addr)
-        reply = "[" + name + "]: " + data.decode()
-        broadcast(reply)
-        if data.decode() == 'Bye':
-            break
-    conn.close()
+        # Log the message
+        log = "[" + str(usr.addr) + "]: " + data.decode() + "\n"
+        server_log(log)
+
+        # Answer
+        cmd = data.decode()[:3]
+        args = data.decode()[4:]
+
+        if cmd == "NEW":
+            new_user(usr,args)
+        else:
+            usr.conn.sendall("UKN".encode())
+    usr.conn.close()
 
 def main_thread(sock):
     while True:
             try:
                 conn, addr = sock.accept()
-                print("[-] Connected to " + addr[0] + ":" + str(addr[1]))
+                log = "[-] Connected to " + addr[0] + ":" + str(addr[1])+"\n"
+                server_log(log)
+                print(log)
                 u = User(conn,addr)
                 clients.append(u)
 
@@ -70,5 +113,5 @@ start_new_thread(main_thread,(s,))
 
 while True:
     msg=sys.stdin.readline()[:-1]
-    if msg == "exit":
+    if msg == "/exit":
         sys.exit()
