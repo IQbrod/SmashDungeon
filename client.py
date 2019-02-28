@@ -18,13 +18,19 @@ def listen_server_thread(sock):
         else :
             print(data.decode())
 
-#Thread to listen server
-start_new_thread(listen_server_thread,(sock,))
+if __name__ == '__main__':
+    #Thread to listen server
+    start_new_thread(listen_server_thread,(sock,))
 
-#Send input messages from stdin
-while True:
-    msg = sys.stdin.readline()[:-1]
-    if msg == "/exit":
-        sys.exit()
-    else:
-        sock.send(msg.encode())
+    #Send input messages from stdin (main thread)
+    while True:
+        msg = sys.stdin.readline()[:-1]
+        if msg == "/exit":
+            sys.exit()
+
+        if msg == "LOG":
+            sock.sendall("LOG username,pass")
+            ### ATTENTE DE REPONSE THREAD ###
+            pass
+        else:
+            sock.sendall(msg.encode())
