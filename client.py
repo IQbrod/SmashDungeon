@@ -1,4 +1,6 @@
 import socket, sys
+sys.path.insert(0,"client_data")
+from french import *
 from _thread import start_new_thread
 
 # Create a TCP/IP socket
@@ -15,8 +17,8 @@ def listen_server_thread(sock):
         if not data :
             print('Disconnected')
             break
-        else :
-            print(data.decode())
+        else:
+            print(CODE[data.decode()])
 
 if __name__ == '__main__':
     #Thread to listen server
@@ -27,10 +29,5 @@ if __name__ == '__main__':
         msg = sys.stdin.readline()[:-1]
         if msg == "/exit":
             sys.exit()
-
-        if msg == "LOG":
-            sock.sendall("LOG username,pass".encode())
-            ### ATTENTE DE REPONSE THREAD ###
-            pass
         else:
             sock.sendall(msg.encode())

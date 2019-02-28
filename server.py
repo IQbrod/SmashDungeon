@@ -41,6 +41,9 @@ class User():
         self.addr = addr
         self.id = -1
 
+    def isLoggedIn(self):
+        return self.id != -1
+
 def broadcast(msg):
     for client in clients:
         client.conn.sendall(msg.encode())
@@ -52,6 +55,15 @@ def server_log(msg):
 
 def new_user(usr,args):
     args = args.rstrip("\n").split(",")    
+
+    # Username not alphanumeric
+    if not args[0].isalnum():
+        usr.conn.sendall("NWV".encode())
+        return
+    # Invalid email
+    if "@" not in args[1]:
+        usr.conn.sendall("NWN".encode())
+        return
 
     with users_lock:
         with open(USER_DB, "r+") as f:
@@ -72,6 +84,19 @@ def new_user(usr,args):
         usr.id = idx
     usr.conn.sendall("NEW".encode())
 
+def log_user(usr,args):
+    args = args.rstrip("\n").split(",")
+    
+    with users_lock:
+        with open(USER_DB, "r") as f:
+            for line in f:
+                l = line.split(",")
+                # Valid User
+                if (l[1] == args[0] and l[3].rstrip("\n") == args[1]):
+                    usr.conn.sendall("LOG".encode())
+                    usr.id = l[0]
+                    return
+    usr.conn.sendall("LGE".encode())
 
 
 def client_thread(usr):
@@ -88,8 +113,10 @@ def client_thread(usr):
 
         if cmd == "NEW":
             new_user(usr,args)
+        if cmd == "LOG":
+            log_user(usr,args)
         else:
-            usr.conn.sendall("UKN".encode())
+            usr.conn.sendall("UNK".encode())
     usr.conn.close()
 
 def main_thread(sock):
