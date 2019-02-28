@@ -29,7 +29,7 @@ if __name__ == '__main__':
             sys.exit()
 
         if msg == "LOG":
-            sock.sendall("LOG username,pass")
+            sock.sendall("LOG username,pass".encode())
             ### ATTENTE DE REPONSE THREAD ###
             pass
         else:
