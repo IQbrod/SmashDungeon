@@ -3,7 +3,7 @@ CODE = {
     "NWU" : "Nom d'utilisateur déjà utilisé",
     "NWV" : "Nom d'utilisateur invalide",
     "NWM" : "Email déjà utilisé",
-    "NWF" : "Email invalide",
+    "NWN" : "Email invalide",
     "LOG" : "Vous êtes connecté",
     "LGE" : "Connexion impossible",
     "UNK" : "Commande inconnue"

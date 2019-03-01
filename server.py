@@ -2,6 +2,7 @@ import socket
 import sys
 sys.path.insert(0,"server_data")
 from parameters import *
+from db_linker import DBL
 from _thread import start_new_thread, allocate_lock
 
 ## SERVER DEFINITION ##
@@ -30,7 +31,6 @@ print("Listening...")
 
 ## SERVER LOCKERS ##
 logs_lock = allocate_lock()
-users_lock = allocate_lock()
 
 ## SERVER BEHAVIOR ##
 clients = []
@@ -39,10 +39,15 @@ class User():
     def __init__(self,conn,addr):
         self.conn = conn
         self.addr = addr
-        self.id = -1
+        self.name = ""
 
     def isLoggedIn(self):
-        return self.id != -1
+        return self.name != ""
+
+def finalexit():
+    DBL.exit()
+    s.close()
+    sys.exit()
 
 def broadcast(msg):
     for client in clients:
@@ -54,49 +59,23 @@ def server_log(msg):
             f.write(msg)
 
 def new_user(usr,args):
-    args = args.rstrip("\n").split(",")    
-
-    # Username not alphanumeric
-    if not args[0].isalnum():
-        usr.conn.sendall("NWV".encode())
-        return
-    # Invalid email
-    if "@" not in args[1]:
-        usr.conn.sendall("NWN".encode())
-        return
-
-    with users_lock:
-        with open(USER_DB, "r+") as f:
-            idx = 0
-            for line in f:
-                l = line.split(",")
-                # Same Username
-                if (l[1] == args[0]):
-                    usr.conn.sendall("NWU".encode())
-                    return
-                # Same Email
-                elif (l[2] == args[1]):
-                    usr.conn.sendall("NWM".encode())
-                    return
-                idx += 1
-            # User Creation
-            f.write(str(idx)+","+args[0]+","+args[1]+","+args[2]+"\n")
-        usr.id = idx
-    usr.conn.sendall("NEW".encode())
+    # Parse args
+    args = args.rstrip("\n").split(",")
+    # Send to DBLinker
+    res = DBL.adduser(args[0],args[1],args[2])
+    # Answer client
+    usr.conn.sendall(res.encode())
 
 def log_user(usr,args):
+    # Parse args
     args = args.rstrip("\n").split(",")
-    
-    with users_lock:
-        with open(USER_DB, "r") as f:
-            for line in f:
-                l = line.split(",")
-                # Valid User
-                if (l[1] == args[0] and l[3].rstrip("\n") == args[1]):
-                    usr.conn.sendall("LOG".encode())
-                    usr.id = l[0]
-                    return
-    usr.conn.sendall("LGE".encode())
+    #Send to DBLinker
+    res = DBL.loguser(args[0],args[1])
+    # Log user on server side
+    if res is "LOG":
+        usr.name = args[0]
+    # Answer client
+    usr.conn.sendall(res.encode())
 
 
 def client_thread(usr):
@@ -113,7 +92,7 @@ def client_thread(usr):
 
         if cmd == "NEW":
             new_user(usr,args)
-        if cmd == "LOG":
+        elif cmd == "LOG":
             log_user(usr,args)
         else:
             usr.conn.sendall("UNK".encode())
@@ -133,7 +112,6 @@ def main_thread(sock):
 
             except SystemExit:
                 break
-                sock.close()
 
 #Start main_thread accepting clients
 start_new_thread(main_thread,(s,))
@@ -141,4 +119,4 @@ start_new_thread(main_thread,(s,))
 while True:
     msg=sys.stdin.readline()[:-1]
     if msg == "/exit":
-        sys.exit()
+        finalexit()
