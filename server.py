@@ -4,6 +4,8 @@ sys.path.insert(0,"server_data")
 from parameters import *
 from db_linker import DBL
 from _thread import start_new_thread, allocate_lock
+from random import randint
+import os
 
 ## SERVER DEFINITION ##
 HOST = 'localhost' # all availabe interfaces
@@ -53,11 +55,30 @@ def broadcast(msg):
     for client in clients:
         client.conn.sendall(msg.encode())
 
+def generate_world(x,y,n):
+    world = []
+    for i in range(x):
+        world.append([])
+        for j in range(y):
+            world[i].append(0)
+
+    i=0
+    while i < n:
+        if world[randint(0,x-1)][randint(0,y-1)] == 0:
+            world[randint(0,x-1)][randint(0,y-1)] = 1
+            i += 1
+
+    with open(WORLD_FILE, "w") as f:
+        for i in range(x):
+            for j in range(y):
+                f.write(str(world[i][j]))
+            f.write("\n")
+
 def server_log(msg):
     with logs_lock:
         with open(LOGS_FILE, "a") as f:
             f.write(msg)
-
+## SERVER FUNCTIONS ## 
 def new_user(usr,args):
     # Parse args
     args = args.rstrip("\n").split(",")
@@ -69,7 +90,7 @@ def new_user(usr,args):
 def log_user(usr,args):
     # Parse args
     args = args.rstrip("\n").split(",")
-    #Send to DBLinker
+    # Send to DBLinker
     res = DBL.loguser(args[0],args[1])
     # Log user on server side
     if res is "LOG":
@@ -77,6 +98,14 @@ def log_user(usr,args):
     # Answer client
     usr.conn.sendall(res.encode())
 
+def list_account(usr,args):
+    # Verify user is logged in
+    if not sr.isLoggedIn():
+        return "DSC"
+    # Send to DBLinked
+    res = DBL.listacc(usr.name)
+    # Answer client
+    usr.conn.sendall(res.encode())
 
 def client_thread(usr):
     while True:
@@ -94,6 +123,8 @@ def client_thread(usr):
             new_user(usr,args)
         elif cmd == "LOG":
             log_user(usr,args)
+        elif cmd == "ACC":
+            list_account(usr,args)
         else:
             usr.conn.sendall("UNK".encode())
     usr.conn.close()
@@ -112,8 +143,12 @@ def main_thread(sock):
 
             except SystemExit:
                 break
-
+        
 #Start main_thread accepting clients
+
+if not os.path.isfile(WORLD_FILE):
+    generate_world(9,9,5)
+
 start_new_thread(main_thread,(s,))
 
 while True:
